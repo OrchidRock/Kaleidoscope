@@ -12,7 +12,7 @@ def fib(x)
 
 ## Depends
 
-You need to instart `llvm` firstly.
+You need to install `llvm` firstly.
 
 ## Build
 
