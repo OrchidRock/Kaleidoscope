@@ -21,14 +21,17 @@ You need to instart `llvm` firstly.
 ## Test example
 
 Create assembly code:
+
 `$ ./Kaleidoscope --filetype=asm fib.kpe`
 
 
 Create LLVM IR:
+
 `$ ./Kaleidoscope --filetype=asm --emit-llvm fib.kpe`
 
 
 Create Object Code:
+
 `$ ./Kaleidoscope --filetype=obj fib.kpe`
 
 Enter JIT REPL:
