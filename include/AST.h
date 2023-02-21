@@ -6,6 +6,7 @@
 #include <vector>
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/SMLoc.h"
 
 using namespace llvm;
 
@@ -33,16 +34,19 @@ public:
     virtual Value* visit(ForExprAST&) = 0;
     virtual Value* visit(VarExprAST&) = 0;
     virtual Function* visit(PrototypeAST&) = 0;
-    virtual Function* visit(FunctionAST&) = 0;
-    
+    virtual Function* visit(FunctionAST&) = 0; 
     virtual ~ASTVisitor() {}
 };
 
 class ExprAST {
+  llvm::SMLoc Loc;
 public:
+  ExprAST(llvm::SMLoc Loc) : Loc(Loc) {}
+
   virtual ~ExprAST() = default;
-  
   virtual Value* accept(ASTVisitor &V) = 0;
+
+  llvm::SMLoc getLocation() { return Loc; }
 };
 
 /// NumberExprAST - Expression class for numeric literals like "1.0".
@@ -50,7 +54,7 @@ class NumberExprAST : public ExprAST {
 public:
   double Val;
 
-  NumberExprAST(double Val) : Val(Val) {}
+  NumberExprAST(double Val, llvm::SMLoc Loc) : ExprAST(Loc),Val(Val) {}
   
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };
@@ -59,7 +63,8 @@ public:
 class VariableExprAST : public ExprAST {
 public:
   std::string Name;
-  VariableExprAST(const std::string &Name) : Name(Name) {}
+  VariableExprAST(const std::string &Name, llvm::SMLoc Loc) 
+          : ExprAST(Loc), Name(Name) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
   const std::string &getName() const { return Name; }
@@ -71,8 +76,8 @@ public:
   char Opcode;
   std::unique_ptr<ExprAST> Operand;
 
-  UnaryExprAST(char Opcode, std::unique_ptr<ExprAST> Operand)
-      : Opcode(Opcode), Operand(std::move(Operand)) {}
+  UnaryExprAST(char Opcode, std::unique_ptr<ExprAST> Operand, llvm::SMLoc Loc)
+      : ExprAST(Loc), Opcode(Opcode), Operand(std::move(Operand)) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };
@@ -84,8 +89,8 @@ public:
   std::unique_ptr<ExprAST> LHS, RHS;
 
   BinaryExprAST(char Op, std::unique_ptr<ExprAST> LHS,
-                std::unique_ptr<ExprAST> RHS)
-      : Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+                std::unique_ptr<ExprAST> RHS, llvm::SMLoc Loc)
+      : ExprAST(Loc), Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };
@@ -97,8 +102,9 @@ public:
   std::vector<std::unique_ptr<ExprAST>> Args;
 
   CallExprAST(const std::string &Callee,
-              std::vector<std::unique_ptr<ExprAST>> Args)
-      : Callee(Callee), Args(std::move(Args)) {}
+              std::vector<std::unique_ptr<ExprAST>> Args,
+              llvm::SMLoc Loc)
+      : ExprAST(Loc), Callee(Callee), Args(std::move(Args)) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };
@@ -109,9 +115,9 @@ public:
   std::unique_ptr<ExprAST> Cond, Then, Else;
 
   IfExprAST(std::unique_ptr<ExprAST> Cond, std::unique_ptr<ExprAST> Then,
-            std::unique_ptr<ExprAST> Else)
-      : Cond(std::move(Cond)), Then(std::move(Then)), Else(std::move(Else)) {}
-  
+            std::unique_ptr<ExprAST> Else, llvm::SMLoc Loc)
+      : ExprAST(Loc), Cond(std::move(Cond)), Then(std::move(Then)), 
+        Else(std::move(Else)) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };
@@ -124,9 +130,10 @@ public:
 
   ForExprAST(const std::string &VarName, std::unique_ptr<ExprAST> Start,
              std::unique_ptr<ExprAST> End, std::unique_ptr<ExprAST> Step,
-             std::unique_ptr<ExprAST> Body)
-      : VarName(VarName), Start(std::move(Start)), End(std::move(End)),
-        Step(std::move(Step)), Body(std::move(Body)) {}
+             std::unique_ptr<ExprAST> Body,
+             llvm::SMLoc Loc)
+      : ExprAST(Loc), VarName(VarName), Start(std::move(Start)), 
+        End(std::move(End)), Step(std::move(Step)), Body(std::move(Body)) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };
@@ -139,8 +146,9 @@ public:
 
   VarExprAST(
       std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>> VarNames,
-      std::unique_ptr<ExprAST> Body)
-      : VarNames(std::move(VarNames)), Body(std::move(Body)) {}
+      std::unique_ptr<ExprAST> Body, llvm::SMLoc Loc)
+      : ExprAST(Loc), VarNames(std::move(VarNames)), 
+        Body(std::move(Body)) {}
 
   Value* accept(ASTVisitor &V) override { return V.visit(*this); }
 };

@@ -47,6 +47,10 @@ static llvm::cl::opt<std::string>
           llvm::cl::desc("<input source file>"),
           llvm::cl::init(""));
 
+static llvm::cl::opt<bool>
+    OneLevelOpt("O1",
+                llvm::cl::desc("optimize code"),
+                llvm::cl::init(false));
 
 static llvm::cl::opt<std::string> 
     OutputFilename("o", 
@@ -165,7 +169,7 @@ int main(int argc, char *argv[])
         }    
         
         llvm::SourceMgr SrcMgr;
-        
+         
         // Tell SrcMgr about this buffer, which is what the
         // parser will pick up.
         SrcMgr.AddNewSourceBuffer(std::move(*FileOrErr), llvm::SMLoc());
@@ -173,7 +177,8 @@ int main(int argc, char *argv[])
         auto &MyModule = *TheModule;
         
         Lexer* lexer = new LexerFile(SrcMgr);
-        auto cg = new CodeGenVisitor(std::move(TheContext), std::move(TheModule));
+        auto cg = new CodeGenVisitor(&SrcMgr,std::move(TheContext), std::move(TheModule),
+                        OneLevelOpt?1:0);
         auto parser = Parser(lexer, cg, false);
         parser.parse();
          
@@ -206,7 +211,8 @@ int main(int argc, char *argv[])
         //auto &MyModule = *TheModule;
         
         Lexer* lexer = new LexerSimple();
-        auto jit = new JITVisitor(std::move(TheContext), std::move(TheModule));
+        auto jit = new JITVisitor(std::move(TheContext), std::move(TheModule),
+                        OneLevelOpt?1:0);
         auto parser = Parser(lexer, jit, true);
         parser.parse(); 
 

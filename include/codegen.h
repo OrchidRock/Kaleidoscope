@@ -16,10 +16,13 @@
 
 #include <memory>
 #include "../include/AST.h"
+#include "../include/lexer.h"
 
 using namespace llvm;
 
 class CodeGenVisitor : public ASTVisitor {
+    llvm::SourceMgr *SrcMgr = nullptr;
+    int OptLevel = 0;
 public:
     std::unique_ptr<LLVMContext> TheContext;
     std::unique_ptr<Module> TheModule;
@@ -33,8 +36,18 @@ public:
     Function* getFunction(std::string);
     AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, StringRef VarName);
     
-    CodeGenVisitor(std::unique_ptr<LLVMContext> C, std::unique_ptr<Module> M)
-            : TheContext(std::move(C)), TheModule(std::move(M)) {
+    CodeGenVisitor(llvm::SourceMgr *SrcMgr, std::unique_ptr<LLVMContext> C, 
+                    std::unique_ptr<Module> M, int OptLevel)
+            : SrcMgr(SrcMgr), OptLevel(OptLevel),
+            TheContext(std::move(C)), TheModule(std::move(M)){
+        // Create a new builder for the module.
+        Builder = std::make_unique<IRBuilder<>>(*TheContext);
+        InitOptimPassManager();    
+    }
+    
+    CodeGenVisitor(std::unique_ptr<LLVMContext> C, std::unique_ptr<Module> M,
+                    int OptLevel)
+            : OptLevel(OptLevel), TheContext(std::move(C)), TheModule(std::move(M)) {
         // Create a new builder for the module.
         Builder = std::make_unique<IRBuilder<>>(*TheContext);
         InitOptimPassManager();    
@@ -52,6 +65,8 @@ public:
     virtual Function* visit(FunctionAST&) override; 
     
     void InitOptimPassManager();
+
+    Value *LogErrorV(llvm::SMLoc, const char *Str);
 };
 
 

@@ -33,7 +33,13 @@ int Parser::GetTokPrecedence() {
 }
 
 std::unique_ptr<ExprAST> Parser::LogError(const char *Str) {
-  llvm::errs() << "Error: " << Str << "\n";
+  llvm::SMLoc Loc = lexer->getLocation();
+  if(Loc.isValid()){
+    llvm::SourceMgr &SrcMgr = (dynamic_cast<LexerFile*>(lexer))->getSourceMgr();
+    SrcMgr.PrintMessage(Loc, llvm::SourceMgr::DiagKind::DK_Error, Str);
+  } else{
+    llvm::errs() << "Error: " << Str << "\n";
+  }
   return nullptr;
 }
 
@@ -44,7 +50,7 @@ std::unique_ptr<PrototypeAST> Parser::LogErrorP(const char *Str) {
 
 
 std::unique_ptr<ExprAST> Parser::ParseNumberExpr() {
-  auto Result = std::make_unique<NumberExprAST>(lexer->NumVal);
+  auto Result = std::make_unique<NumberExprAST>(lexer->NumVal, lexer->getLocation());
   getNextToken(); // consume the number
   return std::move(Result);
 }
@@ -67,11 +73,11 @@ std::unique_ptr<ExprAST> Parser::ParseParenExpr() {
 ///   ::= identifier '(' expression* ')'
 std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr() {
   std::string IdName = lexer->IdentifierStr;
-
+  llvm::SMLoc Loc = lexer->getLocation();
   getNextToken(); // eat identifier.
 
   if (CurTok != '(') // Simple variable ref.
-    return std::make_unique<VariableExprAST>(IdName);
+    return std::make_unique<VariableExprAST>(IdName, Loc);
 
   // Call.
   getNextToken(); // eat (
@@ -95,7 +101,7 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr() {
   // Eat the ')'.
   getNextToken();
 
-  return std::make_unique<CallExprAST>(IdName, std::move(Args));
+  return std::make_unique<CallExprAST>(IdName, std::move(Args), lexer->getLocation());
 }
 
 /// ifexpr ::= 'if' expression 'then' expression 'else' expression
@@ -125,7 +131,7 @@ std::unique_ptr<ExprAST> Parser::ParseIfExpr() {
     return nullptr;
 
   return std::make_unique<IfExprAST>(std::move(Cond), std::move(Then),
-                                      std::move(Else));
+                                      std::move(Else), lexer->getLocation());
 }
 
 /// forexpr ::= 'for' identifier '=' expr ',' expr (',' expr)? 'in' expression
@@ -171,7 +177,8 @@ std::unique_ptr<ExprAST> Parser::ParseForExpr() {
     return nullptr;
 
   return std::make_unique<ForExprAST>(IdName, std::move(Start), std::move(End),
-                                       std::move(Step), std::move(Body));
+                                       std::move(Step), std::move(Body),
+                                       lexer->getLocation());
 }
 
 /// varexpr ::= 'var' identifier ('=' expression)?
@@ -219,7 +226,8 @@ std::unique_ptr<ExprAST> Parser::ParseVarExpr() {
   if (!Body)
     return nullptr;
 
-  return std::make_unique<VarExprAST>(std::move(VarNames), std::move(Body));
+  return std::make_unique<VarExprAST>(std::move(VarNames), std::move(Body),
+                  lexer->getLocation());
 }
 
 /// primary
@@ -260,7 +268,7 @@ std::unique_ptr<ExprAST> Parser::ParseUnary() {
   int Opc = CurTok;
   getNextToken();
   if (auto Operand = ParseUnary())
-    return std::make_unique<UnaryExprAST>(Opc, std::move(Operand));
+    return std::make_unique<UnaryExprAST>(Opc, std::move(Operand), lexer->getLocation());
   return nullptr;
 }
 
@@ -297,7 +305,8 @@ std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec,
 
     // Merge LHS/RHS.
     LHS =
-        std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS));
+        std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS),
+                        lexer->getLocation());
   }
 }
 
@@ -394,7 +403,7 @@ std::unique_ptr<FunctionAST> Parser::ParseDefinition() {
 std::unique_ptr<FunctionAST> Parser::ParseTopLevelExpr() {
   if (auto E = ParseExpression()) {
     // Make an anonymous proto.
-    auto Proto = std::make_unique<PrototypeAST>("__anon_expr",
+    auto Proto = std::make_unique<PrototypeAST>(IsJit?"__anon_expr":"main",
                                                  std::vector<std::string>());
     return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
   }
@@ -418,7 +427,7 @@ void Parser::HandleDefinition() {
 
 void Parser::HandleExtern() {
     if(auto FnAST = ParseExtern()) {
-        if(auto  *FnIR = FnAST->accept(*Visitor)) {      
+        if(FnAST->accept(*Visitor)) {      
             //FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
         }
     }else{
@@ -428,7 +437,7 @@ void Parser::HandleExtern() {
 
 void Parser::HandleTopLevelExpression() {
     if(auto FnAST = ParseTopLevelExpr()) {
-        if(auto *FnIR = FnAST->accept(*Visitor)) {
+        if(FnAST->accept(*Visitor)) {
               
         }
     }else{

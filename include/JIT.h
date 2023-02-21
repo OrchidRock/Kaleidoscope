@@ -10,8 +10,9 @@ using namespace llvm::orc;
 class JITVisitor : public CodeGenVisitor {
   std::unique_ptr<KaleidoscopeJIT> TheJIT;
 public:
-  JITVisitor(std::unique_ptr<LLVMContext> C, std::unique_ptr<Module> M) 
-          :CodeGenVisitor(std::move(C), std::move(M)){
+  JITVisitor(std::unique_ptr<LLVMContext> C, std::unique_ptr<Module> M,
+                  int OptLevel) 
+          :CodeGenVisitor(std::move(C), std::move(M), OptLevel){
     TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
     TheModule->setDataLayout(TheJIT->getDataLayout());
   }

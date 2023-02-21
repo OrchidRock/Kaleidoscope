@@ -6,6 +6,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/SMLoc.h"
 
 namespace Token {
 enum TokenID {
@@ -42,6 +43,7 @@ public:
     double NumVal = 0;             // Filled in if tok_number
     virtual ~Lexer() {};  
     virtual int gettok() = 0;
+    virtual llvm::SMLoc getLocation() = 0;
 };
 
 class LexerFile : public Lexer {
@@ -49,7 +51,6 @@ class LexerFile : public Lexer {
   llvm::SourceMgr& SrcMgr;
   const char *CurPtr;
   llvm::StringRef CurBuf;
-
   /// CurBuffer - This is the current buffer index we're
   /// lexing from as managed by the SourceMgr object.
   unsigned CurBuffer = 0;
@@ -58,12 +59,16 @@ public:
     LexerFile(llvm::SourceMgr& SrcMgr);
 
     int gettok() override;
+
+    llvm::SMLoc getLocation() override { return llvm::SMLoc::getFromPointer(CurPtr); }
+    llvm::SourceMgr &getSourceMgr() { return SrcMgr; }
 };
 
 class LexerSimple : public Lexer {
 public:
     LexerSimple(){}
     int gettok() override;
+    llvm::SMLoc getLocation() override { return llvm::SMLoc(); }
 };
 
 #endif

@@ -24,26 +24,29 @@
 
 using namespace llvm;
 
-static Value *LogErrorV(const char *Str) {
-  llvm::errs() << "Error: " << Str << "\n";
+Value *CodeGenVisitor::LogErrorV(llvm::SMLoc Loc, const char *Str) {
+  if (SrcMgr && Loc.isValid()) {
+    SrcMgr->PrintMessage(Loc, llvm::SourceMgr::DiagKind::DK_Error, Str);
+  } else
+    llvm::errs() << "Error: " << Str << "\n";
   return nullptr;
 }
 
 void CodeGenVisitor::InitOptimPassManager() {
     // Create a new pass manager attached to it.
     TheFPM = std::make_unique<legacy::FunctionPassManager>(TheModule.get());
-
-    // Promote allocas to registers.
-    TheFPM->add(createPromoteMemoryToRegisterPass());
-    // Do simple "peephole" optimizations and bit-twiddling optzns.
-    TheFPM->add(createInstructionCombiningPass());
-    // Reassociate expressions.
-    TheFPM->add(createReassociatePass());
-    // Eliminate Common SubExpressions.
-    TheFPM->add(createGVNPass());
-    // Simplify the control flow graph (deleting unreachable blocks, etc).
-    TheFPM->add(createCFGSimplificationPass());
-
+    if (OptLevel > 0){
+        // Promote allocas to registers.
+        TheFPM->add(createPromoteMemoryToRegisterPass());
+        // Do simple "peephole" optimizations and bit-twiddling optzns.
+        TheFPM->add(createInstructionCombiningPass());
+        // Reassociate expressions.
+        TheFPM->add(createReassociatePass());
+        // Eliminate Common SubExpressions.
+        TheFPM->add(createGVNPass());
+        // Simplify the control flow graph (deleting unreachable blocks, etc).
+        TheFPM->add(createCFGSimplificationPass());
+    }
     TheFPM->doInitialization();
 }
 
@@ -79,7 +82,7 @@ Value * CodeGenVisitor::visit(VariableExprAST &Node) {
   // Look this variable up in the function.
   AllocaInst *A = NamedValues[Node.Name];
   if (!A)
-    return LogErrorV("Unknown variable name");
+    return LogErrorV(Node.getLocation(), "Unknown variable name");
 
   // Load the value.
   return Builder->CreateLoad(A->getAllocatedType(), A, Node.Name.c_str());
@@ -92,7 +95,7 @@ Value * CodeGenVisitor::visit(UnaryExprAST &Node) {
 
   Function *F = getFunction(std::string("unary") + Node.Opcode);
   if (!F)
-    return LogErrorV("Unknown unary operator");
+    return LogErrorV(Node.getLocation(), "Unknown unary operator");
 
   return Builder->CreateCall(F, OperandV, "unop");
 }
@@ -106,7 +109,7 @@ Value * CodeGenVisitor::visit(BinaryExprAST &Node) {
     // dynamic_cast for automatic error checking.
     VariableExprAST *LHSE = static_cast<VariableExprAST *>(Node.LHS.get());
     if (!LHSE)
-      return LogErrorV("destination of '=' must be a variable");
+      return LogErrorV(Node.getLocation(), "destination of '=' must be a variable");
     // Codegen the RHS.
     Value *Val = Node.RHS->accept(*this);
     if (!Val)
@@ -115,7 +118,7 @@ Value * CodeGenVisitor::visit(BinaryExprAST &Node) {
     // Look up the name.
     Value *Variable = NamedValues[LHSE->getName()];
     if (!Variable)
-      return LogErrorV("Unknown variable name");
+      return LogErrorV(LHSE->getLocation(), "Unknown variable name");
 
     Builder->CreateStore(Val, Variable);
     return Val;
@@ -154,11 +157,11 @@ Value * CodeGenVisitor::visit(CallExprAST &Node) {
   // Look up the name in the global module table.
   Function *CalleeF = getFunction(Node.Callee);
   if (!CalleeF)
-    return LogErrorV("Unknown function referenced");
+    return LogErrorV(Node.getLocation(), "Unknown function referenced");
 
   // If argument mismatch error.
   if (CalleeF->arg_size() != Node.Args.size())
-    return LogErrorV("Incorrect # arguments passed");
+    return LogErrorV(Node.getLocation(), "Incorrect # arguments passed");
 
   std::vector<Value *> ArgsV;
   for (unsigned i = 0, e = Node.Args.size(); i != e; ++i) {

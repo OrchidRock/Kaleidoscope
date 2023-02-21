@@ -20,19 +20,21 @@ You need to install `llvm` firstly.
 
 ## Test example
 
-Create assembly code:
+To compile and emit assembly code:
 
 `$ ./Kaleidoscope --filetype=asm fib.kpe`
 
-
-Create LLVM IR:
+To compile and emit LLVM IR:
 
 `$ ./Kaleidoscope --filetype=asm --emit-llvm fib.kpe`
 
-
-Create Object Code:
+To compile and emit object Code:
 
 `$ ./Kaleidoscope --filetype=obj fib.kpe`
+
+To optimize code with `-O1`:
+
+`$ ./kaleidoscope -O1 fib.kpe`
 
 Enter JIT REPL:
 
