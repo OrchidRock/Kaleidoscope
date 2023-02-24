@@ -13,10 +13,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/SourceMgr.h"
 
 #include <memory>
 #include "../include/AST.h"
-#include "../include/lexer.h"
 
 using namespace llvm;
 

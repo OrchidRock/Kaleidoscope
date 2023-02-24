@@ -47,10 +47,19 @@ static llvm::cl::opt<std::string>
           llvm::cl::desc("<input source file>"),
           llvm::cl::init(""));
 
-static llvm::cl::opt<bool>
-    OneLevelOpt("O1",
-                llvm::cl::desc("optimize code"),
-                llvm::cl::init(false));
+static llvm::cl::opt<signed char> OptLevel(
+        llvm::cl::desc("Setting the optimization level:"),
+        llvm::cl::ZeroOrMore,
+        llvm::cl::values (
+            clEnumValN(3, "O", "Equivalent to -O3"),
+            clEnumValN(0, "O0", "Optimization level 0"),
+            clEnumValN(1, "O1", "Optimization level 1"),
+            clEnumValN(2, "O2", "Optimization level 2"),
+            clEnumValN(3, "O3", "Optimization level 3"),
+            clEnumValN(-1, "Os", "Like -O2 with extra optimization for size"),
+            clEnumValN(-2, "Oz", "Like -Os but reduces code size further")
+        ),
+        llvm::cl::init(0));
 
 static llvm::cl::opt<std::string> 
     OutputFilename("o", 
@@ -178,7 +187,7 @@ int main(int argc, char *argv[])
         
         Lexer* lexer = new LexerFile(SrcMgr);
         auto cg = new CodeGenVisitor(&SrcMgr,std::move(TheContext), std::move(TheModule),
-                        OneLevelOpt?1:0);
+                        OptLevel?1:0);
         auto parser = Parser(lexer, cg, false);
         parser.parse();
          
@@ -212,7 +221,7 @@ int main(int argc, char *argv[])
         
         Lexer* lexer = new LexerSimple();
         auto jit = new JITVisitor(std::move(TheContext), std::move(TheModule),
-                        OneLevelOpt?1:0);
+                        OptLevel?1:0);
         auto parser = Parser(lexer, jit, true);
         parser.parse(); 
 

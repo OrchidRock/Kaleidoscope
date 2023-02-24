@@ -3,9 +3,12 @@
 
 #include <memory>
 #include <map>
-#include "AST.h"
-#include "lexer.h"
-#include "codegen.h"
+
+class Lexer;
+class ASTVisitor;
+class ExprAST;
+class PrototypeAST;
+class FunctionAST;
 
 class Parser {
     Lexer* lexer = nullptr;

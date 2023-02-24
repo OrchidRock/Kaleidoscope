@@ -1,5 +1,7 @@
 #include "../include/lexer.h"
 #include "../include/parser.h"
+#include "../include/AST.h"
+#include "../include/codegen.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
 
@@ -35,7 +37,7 @@ int Parser::GetTokPrecedence() {
 std::unique_ptr<ExprAST> Parser::LogError(const char *Str) {
   llvm::SMLoc Loc = lexer->getLocation();
   if(Loc.isValid()){
-    llvm::SourceMgr &SrcMgr = (dynamic_cast<LexerFile*>(lexer))->getSourceMgr();
+    llvm::SourceMgr &SrcMgr = (static_cast<LexerFile*>(lexer))->getSourceMgr();
     SrcMgr.PrintMessage(Loc, llvm::SourceMgr::DiagKind::DK_Error, Str);
   } else{
     llvm::errs() << "Error: " << Str << "\n";
